@@ -26,6 +26,15 @@ x-environment:
   RABBITMQ_PASS: taiga
   # Telemetry settings
   ENABLE_TELEMETRY: "True"
+  # OpenID settings: https://github.com/bdware/taiga-contrib-openid-auth
+  # Enable OpenID to allow to register users if they do not exist. Set to false to disable all signups
+  PUBLIC_REGISTER_ENABLED: "True"
+  # OpenID Settings
+  ENABLE_OPENID: "True"
+  OPENID_USER_URL : "https://{OpenID API Path}/userinfo"
+  OPENID_TOKEN_URL : "https://{OpenID API Path}/oauth2/token"
+  OPENID_CLIENT_ID : "<CLient ID>"
+  OPENID_CLIENT_SECRET : "<CLient SECRET>"
 
 x-volumes:
   &default-back-volumes
@@ -36,7 +45,7 @@ x-volumes:
 
 services:
   taiga-db:
-    image: postgres:12.3
+    image: postgres:13.2
     environment:
       POSTGRES_DB: taiga
       POSTGRES_USER: taiga
@@ -47,7 +56,7 @@ services:
       - taiga
 
   taiga-back:
-    image: taigaio/taiga-back:latest
+    image: bdware/taiga-back-openid:6.0.7
     environment: *default-back-environment
     volumes: *default-back-volumes
     networks:
@@ -58,7 +67,7 @@ services:
       - taiga-async-rabbitmq
 
   taiga-async:
-    image: taigaio/taiga-back:latest
+    image: taigaio/taiga-back:6.0.7
     entrypoint: ["/taiga-back/docker/async_entrypoint.sh"]
     environment: *default-back-environment
     volumes: *default-back-volumes
@@ -70,7 +79,7 @@ services:
       - taiga-async-rabbitmq
 
   taiga-async-rabbitmq:
-    image: rabbitmq:3-management-alpine
+    image: rabbitmq:3.8.14-management-alpine
     environment:
       RABBITMQ_ERLANG_COOKIE: secret-erlang-cookie
       RABBITMQ_DEFAULT_USER: taiga
@@ -80,17 +89,22 @@ services:
       - taiga
 
   taiga-front:
-    image: taigaio/taiga-front:latest
+    image: bdware/taiga-front-openid:6.0.7
     environment:
       TAIGA_URL: "http://localhost:9000"
       TAIGA_WEBSOCKETS_URL: "ws://localhost:9000"
+      # OpenID envs: https://github.com/bdware/taiga-contrib-openid-auth
+      ENABLE_OPENID: "true"
+      OPENID_URL : "https://{url-to-keycloak}/auth/realms/{realm}/protocol/openid-connect/auth"
+      OPENID_CLIENT_ID : "<ClientID>"
+      OPENID_NAME: "Name you want to give your openid provider e.g keycloak"
     networks:
       - taiga
     # volumes:
     #   - ./conf.json:/usr/share/nginx/html/conf.json
 
   taiga-events:
-    image: taigaio/taiga-events:latest
+    image: taigaio/taiga-events:6.0.2
     environment:
       RABBITMQ_USER: taiga
       RABBITMQ_PASS: taiga
@@ -101,7 +115,7 @@ services:
       - taiga-events-rabbitmq
 
   taiga-events-rabbitmq:
-    image: rabbitmq:3-management-alpine
+    image: rabbitmq:3.8.14-management-alpine
     environment:
       RABBITMQ_ERLANG_COOKIE: secret-erlang-cookie
       RABBITMQ_DEFAULT_USER: taiga
@@ -111,7 +125,7 @@ services:
       - taiga
 
   taiga-protected:
-    image: taigaio/taiga-protected:latest
+    image: taigaio/taiga-protected:6.0.0
     environment:
       MAX_AGE: 360
       SECRET_KEY: "taiga-back-secret-key"
@@ -119,7 +133,7 @@ services:
       - taiga
 
   taiga-gateway:
-    image: nginx:1.19-alpine
+    image: nginx:1.19.7-alpine
     ports:
       - "9000:80"
     volumes:
@@ -135,8 +149,20 @@ services:
 
 volumes:
   taiga-static-data:
+    driver_opts:
+      type: none
+      device: ${PWD}/../data/taiga/static
+      o: bind
   taiga-media-data:
+    driver_opts:
+      type: none
+      device: ${PWD}/../data/taiga/media
+      o: bind
   taiga-db-data:
+    driver_opts:
+      type: none
+      device: ${PWD}/../data/taiga/db
+      o: bind
 
 networks:
   taiga:

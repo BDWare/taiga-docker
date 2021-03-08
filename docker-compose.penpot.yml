@@ -6,11 +6,19 @@ networks:
 
 volumes:
   penpot_postgres_data:
+    driver_opts:
+    type: none
+    device: ${PWD}/../data/penpot/db
+    o: bind
   penpot_assets_data:
+    driver_opts:
+    type: none
+    device: ${PWD}/../data/penpot/assets
+    o: bind
 
 services:
   penpot-frontend:
-    image: "penpotapp/frontend:latest"
+    image: "penpotapp/frontend:1.3.0-alpha"
     ports:
       - 9001:80
 
@@ -24,7 +32,7 @@ services:
       - penpot
 
   penpot-backend:
-    image: "penpotapp/backend:latest"
+    image: "penpotapp/backend:1.3.0-alpha"
     volumes:
       - penpot_assets_data:/opt/data
 
@@ -81,7 +89,7 @@ services:
       - penpot
 
   penpot-exporter:
-    image: "penpotapp/exporter:latest"
+    image: "penpotapp/exporter:1.3.0-alpha"
     environment:
       # Don't touch it; this uses internal docker network to
       # communicate with the frontend.
@@ -90,7 +98,7 @@ services:
       - penpot
 
   penpot-postgres:
-    image: "postgres:13"
+    image: "postgres:13.2"
     restart: always
     stop_signal: SIGINT
 
